@@ -32,20 +32,25 @@ def request(state: State, prompt: str) -> str:
 
 def send_message(state: State) -> None:
     state.context += f"Human: \n {state.current_user_message}\n\n AI:"
-    # Send the user's message to the API and get the response
     answer = request(state, state.context).replace("\n", "")
-    # Add the response to the context for future messages
     state.context += answer
-    # Update the conversation
     conv = state.conversation._dict.copy()
     conv["Conversation"] += [state.current_user_message, answer]
     state.conversation = conv
-    # Clear the input field
     state.current_user_message = ""
 
 
+def style_conv(_: State, idx: int) -> str:
+    if idx is None:
+        return None
+    elif idx % 2 == 0:
+        return "user_msg"
+    else:
+        return "gpt_msg"
+
+
 page = """
-<|{conversation}|table|show_all|width=100%|>
+<|{conversation}|table|show_all|width=100%|style=style_conv|>
 <|{current_user_message}|input|label=Write your message here...|on_action=send_message|class_name=fullwidth|>
 """
 
