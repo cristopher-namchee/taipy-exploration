@@ -15,3 +15,9 @@ An effort to clone ChatGPT interface with Taipy.
 4. Install the required dependency using `pip install -r requirements.txt`
 5. Create a new `.env` file in this folder and fill it with required values. You can use `.env.sample` as the template.
 6. Happy coding!
+
+### Target
+
+- [x] Working minimal sample
+- [ ] Multi column with configuration
+- [ ] Stream
