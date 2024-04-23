@@ -3,7 +3,14 @@ import os
 
 from dotenv import load_dotenv
 
-from taipy.gui import State, Gui, invoke_callback, get_state_id
+from taipy.gui import (
+    State,
+    Gui,
+    invoke_callback,
+    get_state_id,
+    invoke_long_callback,
+    notify,
+)
 
 load_dotenv()
 
@@ -20,41 +27,45 @@ top_p = 0
 frequency_penalty = 0
 
 
-def request(state: State, prompt: str) -> str:
-    response = state.client.chat.completions.create(
-        messages=[
-            {
-                "role": "user",
-                "content": f"{state.system_message}\n\n{prompt}",
-            },
-        ],
-        model="gpt-3.5-turbo",
-        frequency_penalty=state.frequency_penalty,
-        max_tokens=state.max_input_token,
-        top_p=state.top_p,
-        temperature=state.temperature,
-    )
-
-    return response.choices[0].message.content
-
-
-def send_message(state: State) -> None:
-    state.context += f"Human: \n {state.current_user_message}\n\n AI:"
-    answer = request(state, state.context).replace("\n", "")
-    state.context += answer
-    conv = state.conversation._dict.copy()
-    conv["Conversation"] += [state.current_user_message, answer]
-    state.conversation = conv
-    state.current_user_message = ""
-
-
 def update_state(state: State, resp: str):
     conv = state.conversation._dict.copy()
 
     state.context += resp
 
+    if conv["Conversation"][-1] == "Thinking...":
+        conv["Conversation"][-1] = ""
+
     conv["Conversation"][-1] += resp
     state.conversation = conv
+
+
+def stream_message(gui, state_id, client, context):
+    response = client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": f"{context}",
+            },
+        ],
+        model="gpt-3.5-turbo",
+        frequency_penalty=frequency_penalty,
+        max_tokens=max_input_token,
+        top_p=top_p,
+        temperature=temperature,
+        stream=True,
+    )
+
+    for chunk in response:
+        resp = chunk.choices[0].delta.content
+        if resp is None:
+            break
+
+        invoke_callback(
+            gui,
+            state_id,
+            update_state,
+            [resp],
+        )
 
 
 def send_message_stream(state: State) -> None:
@@ -62,27 +73,15 @@ def send_message_stream(state: State) -> None:
     curr_msg = state.current_user_message
 
     conv = state.conversation._dict.copy()
-    conv["Conversation"] += [curr_msg, "..."]
+    conv["Conversation"] += [curr_msg, "Thinking..."]
     state.conversation = conv
 
     state.current_user_message = ""
-
-    response = state.client.chat.completions.create(
-        messages=[
-            {
-                "role": "user",
-                "content": f"{state.context}",
-            },
-        ],
-        model="gpt-3.5-turbo",
-        stream=True,
+    invoke_long_callback(
+        state=state,
+        user_function=stream_message,
+        user_function_args=[gui, get_state_id(state), state.client, state.context],
     )
-
-    for chunk in response:
-        if chunk.choices[0].delta.content is not None:
-            resp = chunk.choices[0].delta.content
-
-            invoke_callback(gui, get_state_id(state), update_state, [resp])
 
 
 def style_conv(_: State, idx: int) -> str:
@@ -98,7 +97,7 @@ page = """
 <|layout|columns=1fr 320px|
 <|layout|class_name=chat-box|
 <|{conversation}|table|show_all|width=100%|style=style_conv|>
-<|{current_user_message}|input|label=Write your message here...|on_action=send_message|class_name=fullwidth|>
+<|{current_user_message}|input|label=Write your message here...|on_action=send_message_stream|class_name=fullwidth a|>
 |>
 <|
 System Message
@@ -118,4 +117,4 @@ Frequency Penalty
 gui = Gui(page)
 
 if __name__ == "__main__":
-    Gui(page).run(title="TaipyGPT", use_reloader=True)
+    gui.run(title="TaipyGPT")

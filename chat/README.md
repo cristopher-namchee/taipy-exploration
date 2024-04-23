@@ -19,5 +19,5 @@ An effort to clone ChatGPT interface with Taipy.
 ### Target
 
 - [x] Working minimal sample
-- [ ] Multi column with configuration
+- [x] Multi column with configuration
 - [ ] Stream
