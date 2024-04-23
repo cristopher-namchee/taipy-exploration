@@ -3,15 +3,21 @@ import os
 
 from dotenv import load_dotenv
 
-from taipy.gui import State, Gui, invoke_long_callback
+from taipy.gui import State, Gui, invoke_callback, get_state_id
 
 load_dotenv()
 
-context = "The following is a conversation with an AI assistant. The assistant is helpful, creative, clever, and very friendly.\n\n"
+context = ""
 conversation = {"Conversation": []}
 current_user_message = ""
 
 client = openai.Client(api_key=os.environ.get("OPENAI_KEY"))
+
+max_input_token = 4096
+system_message = "The following is a conversation with an AI assistant. The assistant is helpful, creative, clever, and very friendly."
+temperature = 0
+top_p = 0
+frequency_penalty = 0
 
 
 def request(state: State, prompt: str) -> str:
@@ -19,10 +25,14 @@ def request(state: State, prompt: str) -> str:
         messages=[
             {
                 "role": "user",
-                "content": f"{prompt}",
+                "content": f"{state.system_message}\n\n{prompt}",
             },
         ],
         model="gpt-3.5-turbo",
+        frequency_penalty=state.frequency_penalty,
+        max_tokens=state.max_input_token,
+        top_p=state.top_p,
+        temperature=state.temperature,
     )
 
     return response.choices[0].message.content
@@ -32,35 +42,31 @@ def send_message(state: State) -> None:
     state.context += f"Human: \n {state.current_user_message}\n\n AI:"
     answer = request(state, state.context).replace("\n", "")
     state.context += answer
-    conv = state.conversation.copy()
+    conv = state.conversation._dict.copy()
     conv["Conversation"] += [state.current_user_message, answer]
     state.conversation = conv
     state.current_user_message = ""
 
 
-def stream_response(state: State, response):
-    conv = state.conversation.copy()
+def update_state(state: State, resp: str):
+    conv = state.conversation._dict.copy()
 
-    for chunk in response:
-        resp = chunk.choices[0].delta.content
-        if resp is None:
-            break
+    state.context += resp
 
-        state.context += resp
-
-        conv["Conversation"][-1] += resp
-        state.conversation = conv
+    conv["Conversation"][-1] += resp
+    state.conversation = conv
 
 
 def send_message_stream(state: State) -> None:
     state.context += f"Human: \n {state.current_user_message}\n\n AI: &nbsp;"
     curr_msg = state.current_user_message
 
-    conv = state.conversation.copy()
+    conv = state.conversation._dict.copy()
     conv["Conversation"] += [curr_msg, "..."]
     state.conversation = conv
 
     state.current_user_message = ""
+
     response = state.client.chat.completions.create(
         messages=[
             {
@@ -72,7 +78,11 @@ def send_message_stream(state: State) -> None:
         stream=True,
     )
 
-    invoke_long_callback(state, stream_response, [response])
+    for chunk in response:
+        if chunk.choices[0].delta.content is not None:
+            resp = chunk.choices[0].delta.content
+
+            invoke_callback(gui, get_state_id(state), update_state, [resp])
 
 
 def style_conv(_: State, idx: int) -> str:
@@ -85,9 +95,27 @@ def style_conv(_: State, idx: int) -> str:
 
 
 page = """
+<|layout|columns=1fr 320px|
+<|layout|class_name=chat-box|
 <|{conversation}|table|show_all|width=100%|style=style_conv|>
 <|{current_user_message}|input|label=Write your message here...|on_action=send_message|class_name=fullwidth|>
+|>
+<|
+System Message
+<|{system_message}|input|class_name=fullwidth|class_name=form__control|>
+Max Input Token
+<|{max_input_token}|number|class_name=fullwidth|class_name=form__control|>
+Temperature
+<|{temperature}|slider|min=0.0|max=1.0|step=0.01|continuous=False|class_name=form__control|>
+Top P
+<|{top_p}|slider|min=0.0|max=1.0|step=0.01|continuous=False|class_name=form__control|>
+Frequency Penalty
+<|{frequency_penalty}|slider|min=-2.0|max=2.0|step=0.01|continuous=False|class_name=form__control|>
+|>
+|>
 """
 
+gui = Gui(page)
+
 if __name__ == "__main__":
-    Gui(page).run(title="TaipyGPT")
+    Gui(page).run(title="TaipyGPT", use_reloader=True)
