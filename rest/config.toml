@@ -1,0 +1,24 @@
+[CORE]
+core_version="3.0"
+
+[DATA_NODE.historical_temperature]
+storage_type = "pickle"
+scope = "SCENARIO:SCOPE"
+
+[DATA_NODE.date_to_forecast]
+storage_type = "pickle"
+scope = "SCENARIO:SCOPE"
+
+[DATA_NODE.predictions]
+storage_type = "pickle"
+scope = "SCENARIO:SCOPE"
+
+[TASK.predict]
+inputs = [ "historical_temperature:SECTION", "date_to_forecast:SECTION" ]
+outputs = [ "predictions:SECTION" ]
+function = "main.predict:function"
+skippable = "False:bool"
+
+[SCENARIO.normal_scenario]
+additional_data_nodes = [ ]
+tasks = [ "predict:SECTION" ]
