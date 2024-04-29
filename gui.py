@@ -1,7 +1,7 @@
 from taipy.gui import Gui
 from math import cos, exp
 
-value = 10
+value = 20
 
 page = """
 # Taipy *Getting Started*

@@ -1,0 +1,13 @@
+[CORE]
+core_version="3.0"
+
+[DATA_NODE.DATA_NODE_1]
+storage_type = "pickle"
+validity_period = ""
+scope = "SCENARIO:SCOPE"
+
+[TASK.TASK_1]
+inputs = [ ]
+outputs = [ ]
+function = ""
+skippable = "False:bool"
