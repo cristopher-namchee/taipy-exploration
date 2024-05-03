@@ -1,11 +1,12 @@
-# Taipy Background Remover
+# Taipy Temperature Predicition
 
-Remove background from PNG image powered by [rembg](https://github.com/danielgatis/rembg)
+Predicting today's temperature using historical data. Made in Taipy
 
 ## Requirements
 
 1. Python 3.10+
 2. Conda 24.+
+3. Taipy Studio Extension (Optional)
 
 ## Getting Started
 
